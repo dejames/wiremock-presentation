@@ -4,6 +4,9 @@
 ##Agenda
 
 * Introduction to wiremock
+* Why wiremock?
+  * Limitation with provider-mocks in flight-service
+  * Problems of using air-spoofer-service 
 * How is it used in flight-service?
 
 ---
@@ -12,6 +15,7 @@
 * Running Wiremock
 * Request matching
 * Record and Playback
+* Response transformation
 
 ---
 
@@ -36,6 +40,7 @@ public WireMockRule wireMockRule = new WireMockRule(WireMockConfiguration.option
 ```
 
 +++
+standalone mode
 
 1. can be started directly using JAR
 ```java
@@ -62,6 +67,10 @@ java -jar wiremock-standalone-2.7.1.jar
 ---
 
 ##Request Matching
+
+folders mappings and __files are created automatically once you start wiremock
+1. mappings    : contains the data to match request
+2. __files     : contains the response to be sent back
 
 +++
 
@@ -105,11 +114,61 @@ mapping :
 
 ##Record and Playback
 
-latest version of wiremock can record using web interface http://localhost:8080/__admin/recorder
+1. new     : using web interface http://localhost:8080/__admin/recorder
+2. legacy  : java -jar wiremock-standalone-2.7.1.jar --proxy-all="http://search.twitter.com" --record-mappings
 
+---
 
+##Response transformation
+
+transforming certain fields in mocked response
+
++++
+
+```java
+    @Override
+    public class ResponseDateTransformer extends ResponseTransformer {
+    
+        @Override
+        public Response transform(Request request, Response response, FileSource files, Parameters parameters) {
+            try {
+                List<LocalDate> requestDates = RequestDateReader.extractDateForEachBound(request);
+    
+                if (!CollectionUtils.isEmpty(requestDates)) {
+                    Optional<ResponseDateEditor> responseDateEditor = ResponseDateEditorSelector.selectResponseDateEditor(response);
+                    if (responseDateEditor.isPresent()) {
+                        return responseDateEditor.get().editResponseDate(response, requestDates);
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+            return response;
+        }
+    
+        @Override
+        public String getName() {
+            return "response-date-transformer";
+        }
+    }
+    
+    WireMockConfiguration wireMockConfiguration = new WireMockConfiguration();
+    wireMockConfiguration.extensions(ResponseDateTransformer.class);
+```
+@[1-24](transformimg dates in response to those in request)
+@[26-27] (adding transformer to wiremock configuration)
 
 ---
 
 ##How Egencia flight-service uses wiremock
+
+---
+
+##References
+
+1. [wiremock in flight-service!](https://stash.sea.corp.expecn.com/projects/EGES/repos/flight-service/browse/fss-acceptance/pom.xml#529)
+2. [wiremock docs!](http://wiremock.org/docs/)
+---
+
+##Thank you!
+
 
